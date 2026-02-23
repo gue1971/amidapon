@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Advanced Amidakuji</title>
+    <title>あみだポン！</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -44,6 +44,10 @@
             color: var(--primary-color);
             letter-spacing: 2px;
         }
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
         .header-btn {
             background: none;
             border: 1px solid #475569;
@@ -52,8 +56,13 @@
             border-radius: 4px;
             font-size: 0.8rem;
             cursor: pointer;
+            transition: all 0.2s;
         }
         .header-btn:active { background-color: #334155; }
+        #btn-retry-same {
+            border-color: var(--highlight-color);
+            color: var(--highlight-color);
+        }
 
         #app-container {
             position: relative;
@@ -134,7 +143,8 @@
             align-items: center;
             pointer-events: auto;
             transform: translateX(-50%);
-            transition: left 0.3s cubic-bezier(0.25, 1, 0.5, 1); /* シャッフル時の移動アニメーション */
+            transition: left 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            cursor: pointer; 
         }
         .result-icon {
             font-size: 1.5rem;
@@ -172,36 +182,55 @@
             background-color: #334155;
             color: #cbd5e1;
             opacity: 1;
+            pointer-events: none; 
         }
-        /* 目立つアニメーション */
+        
+        /* 目立つアニメーション (全体を跳ねさせる) */
         @keyframes pop {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.3); filter: drop-shadow(0 0 10px rgba(255,255,255,0.8)); }
-            100% { transform: scale(1); }
+            0% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.2); filter: drop-shadow(0 0 15px rgba(255,255,255,0.5)); z-index: 50; }
+            100% { transform: translateX(-50%) scale(1); }
         }
-        .highlight-pop .result-icon {
-            animation: pop 0.5s ease-out;
+        .highlight-pop {
+            animation: pop 0.6s ease-out;
         }
 
-        /* 中央マスク（UI） */
+        /* ドボン用の強烈なアニメーション */
+        @keyframes shock {
+            0% { transform: translateX(-50%) translate(0, 0); }
+            10% { transform: translateX(-50%) translate(-4px, -4px) rotate(-5deg); filter: drop-shadow(0 0 20px rgba(244,63,94,0.8)); z-index: 50; }
+            20% { transform: translateX(-50%) translate(4px, 4px) rotate(5deg); }
+            30% { transform: translateX(-50%) translate(-4px, 4px) rotate(-5deg); }
+            40% { transform: translateX(-50%) translate(4px, -4px) rotate(5deg); }
+            50% { transform: translateX(-50%) translate(-4px, -4px) rotate(-5deg); }
+            60% { transform: translateX(-50%) translate(4px, 4px) rotate(5deg); }
+            70% { transform: translateX(-50%) translate(-4px, 4px) rotate(-5deg); }
+            80% { transform: translateX(-50%) translate(4px, -4px) rotate(5deg); }
+            90% { transform: translateX(-50%) translate(-2px, -2px) rotate(-2deg); }
+            100% { transform: translateX(-50%) translate(0, 0) rotate(0); }
+        }
+        .highlight-shock {
+            animation: shock 0.6s ease-in-out;
+        }
+
+        /* 中央マスク（UI） - 上下中央配置に変更 */
         #center-mask {
             position: absolute;
-            top: 100px; /* 上部のはしごを見せる */
-            bottom: 160px; /* 下部のはしごを見せる */
+            top: 50%;
             left: 10px;
             right: 10px;
+            transform: translateY(-50%);
             background-color: rgba(15, 23, 42, 0.85);
             border-radius: 12px;
-            border: 1px dashed var(--primary-color);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             z-index: 20;
-            padding: 20px;
+            padding: 30px 20px;
             box-sizing: border-box;
             backdrop-filter: blur(6px);
-            transition: opacity 0.4s ease;
+            transition: opacity 0.4s ease, background-color 0.4s ease, backdrop-filter 0.4s ease;
         }
         .mask-title {
             font-size: 1.3rem;
@@ -281,41 +310,25 @@
             align-items: center;
             width: 100%;
         }
-
-        /* 終了後のリトライ用オーバーレイ */
-        #retry-overlay {
-            position: absolute;
-            top: 30%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            gap: 15px;
-            z-index: 30;
-            background: rgba(15, 23, 42, 0.9);
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid var(--highlight-color);
-        }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1>AMIDAKUJI</h1>
-        <button class="header-btn" id="btn-reset-top">最初から</button>
+        <h1>あみだポン！</h1>
+        <div class="header-buttons">
+            <button class="header-btn" id="btn-retry-same" style="display:none;">もう一度</button>
+            <button class="header-btn" id="btn-reset-top">最初から</button>
+        </div>
     </div>
 
     <div id="app-container">
-        <!-- はしご描画用SVG -->
         <svg id="amida-svg" viewBox="0 0 300 600" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
             <g id="lines-group"></g>
             <g id="path-group"></g>
             <circle id="tracer" r="6" fill="#fff" style="display: none; filter: drop-shadow(0 0 8px #fff);" />
         </svg>
 
-        <!-- UIマスク -->
         <div id="center-mask">
             <!-- 1. 線の数 -->
             <div id="setup-lines-ui" class="ui-panel">
@@ -334,28 +347,20 @@
                 <div class="current-player" id="current-player-label">Aさん</div>
                 <div class="instruction-text">
                     上の丸いボタンをタップしてね<br>
-                    下枠のアイコンタップで内容(当たり/ドボン)を変更できます
+                    下枠タップで内容変更
                 </div>
             </div>
 
             <!-- 3. シャッフル -->
             <div id="shuffle-ui" class="ui-panel">
-                <div class="mask-title">シャッフル</div>
-                <div class="instruction-text">5秒後に自動で止まります</div>
-                <button class="action-btn" id="btn-shuffle" style="margin-top: 20px;">スタート</button>
-                <button class="action-btn" id="btn-start-game" style="margin-top: 20px; display: none;">くじを引く！</button>
+                <button class="action-btn" id="btn-shuffle" style="margin-top: 10px;">シャッフル</button>
+                <button class="action-btn" id="btn-start-game" style="margin-top: 10px; display: none;">くじを引く！</button>
             </div>
 
             <!-- 4. カウントダウン -->
             <div id="countdown-ui" class="ui-panel">
                 <div class="countdown-text" id="countdown-display">3</div>
             </div>
-        </div>
-
-        <!-- 終了後メニュー -->
-        <div id="retry-overlay">
-            <button class="action-btn" id="btn-retry-same">もう一度（同じ設定）</button>
-            <button class="header-btn" id="btn-retry-new" style="border:none; text-decoration:underline;">設定をやり直す</button>
         </div>
 
         <div class="starts-container" id="starts"></div>
@@ -366,11 +371,11 @@
         const svgns = "http://www.w3.org/2000/svg";
         const playerNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
         
-        // アイコンとテキストの設定
+        // アイコン変更
         const TYPES = {
-            ATARI:  { icon: '💮', defaultText: 'あたり', color: '#fbbf24' },
+            ATARI:  { icon: '⭐', defaultText: 'あたり', color: '#fbbf24' },
             DOBON:  { icon: '💀', defaultText: 'ドボン', color: '#f43f5e' },
-            HAZURE: { icon: '➖', defaultText: 'はずれ', color: '#94a3b8' }
+            HAZURE: { icon: '・', defaultText: 'はずれ', color: '#94a3b8' }
         };
         const TYPE_KEYS = ['ATARI', 'HAZURE', 'DOBON'];
 
@@ -379,8 +384,8 @@
         let currentPlayerIndex = 0;
         let selections = []; 
         let rungs = [];
-        let itemsData = []; // 結果欄のデータ [{id, typeKey, text, colIndex}]
-        let drawnPaths = {}; // playerIndex -> path node
+        let itemsData = []; 
+        let drawnPaths = {}; 
 
         const VIEW_WIDTH = 300;
         const VIEW_HEIGHT = 600;
@@ -388,7 +393,6 @@
         const PADDING_BOTTOM = 140; 
         const PADDING_SIDE = 30;
 
-        // DOM
         const ui = {
             linesGroup: document.getElementById('lines-group'),
             pathGroup: document.getElementById('path-group'),
@@ -407,7 +411,7 @@
             btnShuffle: document.getElementById('btn-shuffle'),
             btnStartGame: document.getElementById('btn-start-game'),
             countdown: document.getElementById('countdown-display'),
-            retryOverlay: document.getElementById('retry-overlay')
+            btnRetrySame: document.getElementById('btn-retry-same')
         };
 
         function switchUI(panelName) {
@@ -432,7 +436,9 @@
             ui.mask.style.opacity = '1';
             ui.mask.style.pointerEvents = 'auto';
             ui.mask.style.display = 'flex';
-            ui.retryOverlay.style.display = 'none';
+            ui.mask.style.backgroundColor = 'rgba(15, 23, 42, 0.85)';
+            ui.mask.style.backdropFilter = 'blur(6px)';
+            ui.btnRetrySame.style.display = 'none';
             
             ui.linesGroup.innerHTML = '';
             ui.starts.innerHTML = '';
@@ -447,7 +453,7 @@
                 switchUI('lines');
                 ui.lineCount.innerText = lineCount;
             } else {
-                renderResults(); // colIndexが変わるため再描画
+                renderResults(); 
                 ui.starts.childNodes.forEach(btn => {
                     btn.classList.remove('selected', 'disabled');
                     btn.innerText = parseInt(btn.dataset.col) + 1;
@@ -468,33 +474,25 @@
             const availableHeight = endY - startY;
 
             for (let i = 0; i < lineCount - 1; i++) {
-                const numRungs = Math.floor(Math.random() * 4) + 3; // 3〜6本の横線
+                const numRungs = Math.floor(Math.random() * 4) + 3;
                 const step = availableHeight / numRungs;
                 for (let j = 0; j < numRungs; j++) {
-                    // 各区間の中でランダムな位置に配置
                     const y = startY + (j * step) + Math.random() * (step * 0.6) + (step * 0.2);
                     rungs.push({ col: i, y: y });
                 }
             }
             
-            // Y座標でソート
             rungs.sort((a, b) => a.y - b.y);
             
-            // パス計算が狂わないように、Y座標が近すぎる場合は最低限(4px)だけ間隔を空ける
             for (let i = 1; i < rungs.length; i++) {
-                if (rungs[i].y - rungs[i-1].y < 4) {
-                    rungs[i].y = rungs[i-1].y + 4;
-                }
+                if (rungs[i].y - rungs[i-1].y < 4) rungs[i].y = rungs[i-1].y + 4;
             }
 
-            // 調整の結果、一番下の線が枠をはみ出したら全体を少し圧縮して収める
             const maxY = VIEW_HEIGHT - PADDING_BOTTOM - 10;
             const lastY = rungs[rungs.length - 1].y;
             if (lastY > maxY) {
                 const scale = (maxY - startY) / (lastY - startY);
-                rungs.forEach(rung => {
-                    rung.y = startY + (rung.y - startY) * scale;
-                });
+                rungs.forEach(rung => { rung.y = startY + (rung.y - startY) * scale; });
             }
         }
 
@@ -535,7 +533,6 @@
         function initItemsData() {
             itemsData = [];
             for (let i = 0; i < lineCount; i++) {
-                // デフォルト：1個目あたり、最後ドボン、他はずれ
                 let type = 'HAZURE';
                 if (i === 0) type = 'ATARI';
                 else if (i === lineCount - 1 && lineCount > 2) type = 'DOBON';
@@ -560,7 +557,13 @@
                 const icon = document.createElement('div');
                 icon.className = 'result-icon';
                 icon.innerText = TYPES[item.typeKey].icon;
-                icon.onclick = () => toggleType(item.id);
+                
+                icon.onclick = (e) => {
+                    if (state === 'SELECTING') {
+                        toggleType(item.id);
+                        e.stopPropagation(); 
+                    }
+                };
 
                 const input = document.createElement('input');
                 input.type = 'text';
@@ -569,9 +572,8 @@
                 input.disabled = (state !== 'SELECTING');
                 input.oninput = (e) => item.text = e.target.value;
                 
-                // 後でハイライト用にイベント付与
-                dom.onclick = (e) => {
-                    if (state === 'FINISHED' && e.target !== input && e.target !== icon) {
+                dom.onclick = () => {
+                    if (state === 'FINISHED') {
                         highlightPathByResult(item.colIndex);
                     }
                 };
@@ -589,10 +591,9 @@
             idx = (idx + 1) % TYPE_KEYS.length;
             item.typeKey = TYPE_KEYS[idx];
             item.text = TYPES[item.typeKey].defaultText;
-            renderResults(); // 再描画
+            renderResults(); 
         }
 
-        // --- フェーズ1: SETUP ---
         function updateBoard() {
             ui.linesGroup.innerHTML = '';
             ui.starts.innerHTML = '';
@@ -619,7 +620,6 @@
             updateSelectionUI();
         };
 
-        // --- フェーズ2: SELECTING ---
         function getPlayerColor(index) {
             const colors = ['#38bdf8', '#a3e635', '#f472b6', '#c084fc', '#4ade80', '#fb923c', '#e2e8f0', '#fbbf24'];
             return colors[index % colors.length];
@@ -641,7 +641,6 @@
 
             currentPlayerIndex++;
             if (currentPlayerIndex >= lineCount) {
-                // 選択終了、入力をロック
                 document.querySelectorAll('.result-input').forEach(b => b.disabled = true);
                 state = 'SHUFFLING';
                 switchUI('shuffle');
@@ -652,29 +651,25 @@
             }
         }
 
-        // --- フェーズ3: SHUFFLING ---
+        // --- シャッフルタイマー制御 ---
         ui.btnShuffle.onclick = startShuffle;
 
         function startShuffle() {
             ui.btnShuffle.style.display = 'none';
             
             let duration = 5000;
-            let elapsed = 0;
-            let currentDelay = 500; // ゆっくりスタート
+            const startTime = performance.now();
+            let currentDelay = 400; // 初期速度
 
-            // 確実に入れ替えるためのロジック（あたり・ドボン優先）
             function doSwap() {
-                // シャッフル用により目立つもの（ATARI/DOBON）を優先して選ぶ
                 let idx1 = Math.floor(Math.random() * lineCount);
                 let idx2 = Math.floor(Math.random() * lineCount);
                 while (idx1 === idx2) idx2 = Math.floor(Math.random() * lineCount);
 
-                // colIndexをスワップ
                 const tempCol = itemsData[idx1].colIndex;
                 itemsData[idx1].colIndex = itemsData[idx2].colIndex;
                 itemsData[idx2].colIndex = tempCol;
 
-                // DOMに反映
                 const dom1 = document.getElementById(itemsData[idx1].id);
                 const dom2 = document.getElementById(itemsData[idx2].id);
                 dom1.style.left = `${getLeftPercent(itemsData[idx1].colIndex)}%`;
@@ -683,21 +678,30 @@
 
             function loop() {
                 doSwap();
-                // 徐々に速くする (最小50ms)
-                currentDelay = Math.max(50, currentDelay * 0.85);
-                elapsed += currentDelay;
+                
+                const elapsed = performance.now() - startTime;
+                
+                // 5秒間で完結するテンポの制御
+                if (elapsed < 2500) {
+                    currentDelay = Math.max(50, currentDelay * 0.8); // 0〜2.5秒: 徐々に加速
+                } else if (elapsed < 3500) {
+                    currentDelay = 50;  // 2.5〜3.5秒: 最高速
+                } else {
+                    currentDelay = 600; // 3.5〜5秒: 超減速（残り時間で約2回変わる）
+                }
 
-                if (elapsed < duration) {
+                if (elapsed + currentDelay < duration) {
                     setTimeout(loop, currentDelay);
                 } else {
-                    stopShuffle();
+                    // 残り時間がcurrentDelay未満ならすぐ終了処理へ
+                    setTimeout(stopShuffle, Math.max(0, duration - elapsed));
                 }
             }
             loop();
         }
 
         function stopShuffle() {
-            // シャッフル完了後、あたりとドボンを目立たせる
+            // シャッフル確定後のアニメーション（当たり・ドボン共通でpop）
             itemsData.forEach(item => {
                 if (item.typeKey === 'ATARI' || item.typeKey === 'DOBON') {
                     const dom = document.getElementById(item.id);
@@ -715,6 +719,9 @@
         }
 
         function startCountdown() {
+            ui.mask.style.backgroundColor = 'transparent';
+            ui.mask.style.backdropFilter = 'none';
+
             let count = 3;
             ui.countdown.innerText = count;
 
@@ -732,7 +739,6 @@
             }, 1000);
         }
 
-        // --- フェーズ4: PLAYING ---
         function startPlayingPhase() {
             state = 'PLAYING';
             ui.mask.style.opacity = '0';
@@ -748,20 +754,18 @@
                 const selection = selections.find(s => s.playerIndex === i);
                 if (selection) {
                     await animatePathSegmented(selection.lineIndex, selection.playerIndex);
-                    await new Promise(r => setTimeout(r, 400)); // 次の人までの間隔
+                    await new Promise(r => setTimeout(r, 400));
                 }
             }
             state = 'FINISHED';
-            ui.retryOverlay.style.display = 'flex';
+            ui.btnRetrySame.style.display = 'block';
             
-            // Startsにクリックイベント追加（ハイライト用）
             ui.starts.childNodes.forEach(btn => {
                 btn.style.pointerEvents = 'auto';
                 btn.onclick = () => highlightPathByStart(parseInt(btn.dataset.col));
             });
         }
 
-        // 座標計算
         function getPathCoords(startIndex) {
             const lineSpacing = (VIEW_WIDTH - PADDING_SIDE * 2) / (lineCount - 1);
             let col = startIndex;
@@ -788,7 +792,6 @@
             return { coords, finalCol: col };
         }
 
-        // セグメントごとに区切って描画（角で止まる）
         async function animatePathSegmented(startIndex, playerIndex) {
             const { coords, finalCol } = getPathCoords(startIndex);
             const color = getPlayerColor(playerIndex);
@@ -816,7 +819,7 @@
                 const start = coords[i];
                 const end = coords[i+1];
                 const dist = Math.hypot(end.x - start.x, end.y - start.y);
-                const duration = dist * 2; // 移動速度
+                const duration = dist * 2; 
 
                 await new Promise(resolve => {
                     const st = performance.now();
@@ -832,14 +835,13 @@
 
                         if (p < 1) requestAnimationFrame(step);
                         else {
-                            d += ` L ${end.x} ${end.y}`; // セグメント確定
+                            d += ` L ${end.x} ${end.y}`; 
                             resolve();
                         }
                     }
                     requestAnimationFrame(step);
                 });
 
-                // 分岐（横移動や角）で一瞬止まる「タメ」
                 if (i < coords.length - 2) {
                     await new Promise(r => setTimeout(r, 80));
                 }
@@ -847,21 +849,28 @@
 
             ui.tracer.style.display = 'none';
             
-            // 結果の色を変える
             const finalItem = itemsData.find(d => d.colIndex === finalCol);
-            const resInput = document.getElementById(finalItem.id).querySelector('.result-input');
+            const resDom = document.getElementById(finalItem.id);
+            const resInput = resDom.querySelector('.result-input');
             resInput.style.borderColor = color;
             resInput.style.boxShadow = `0 0 10px ${color}80`;
+
+            if (finalItem.typeKey === 'ATARI') {
+                resDom.classList.add('highlight-pop');
+                await new Promise(r => setTimeout(r, 600)); 
+                resDom.classList.remove('highlight-pop');
+            } else if (finalItem.typeKey === 'DOBON') {
+                resDom.classList.add('highlight-shock');
+                await new Promise(r => setTimeout(r, 600)); 
+                resDom.classList.remove('highlight-shock');
+            }
         }
 
-        // --- フェーズ5: 後処理・ハイライト ---
         function highlightPath(targetPath) {
-            // 全てを半透明に
             Object.values(drawnPaths).forEach(p => {
                 p.setAttribute('opacity', '0.2');
                 p.setAttribute('stroke-width', '3');
             });
-            // ターゲットを強調して一番手前に
             targetPath.setAttribute('opacity', '1');
             targetPath.setAttribute('stroke-width', '7');
             ui.pathGroup.appendChild(targetPath); 
@@ -877,17 +886,9 @@
             if (path) highlightPath(path);
         }
 
-        // リセット処理
         document.getElementById('btn-reset-top').onclick = () => init(true);
-        document.getElementById('btn-retry-same').onclick = () => init(false); // 設定引き継ぎ
-        document.getElementById('btn-retry-new').onclick = () => init(true);   // 完全リセット
+        document.getElementById('btn-retry-same').onclick = () => init(false); 
 
-        // 中央タップでもう一度メニュー（念のため）
-        document.getElementById('amida-svg').onclick = () => {
-            if (state === 'FINISHED') ui.retryOverlay.style.display = 'flex';
-        };
-
-        // 起動
         init(true);
 
     </script>
