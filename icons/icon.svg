@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="あみだポン！ icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#14103a"/>
+      <stop offset="100%" stop-color="#1b1851"/>
+    </linearGradient>
+    <filter id="glowCyan" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glowPink" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glowLime" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" fill="url(#bg)" rx="220"/>
+
+  <!-- Vertical lines -->
+  <line x1="180" y1="170" x2="180" y2="860" stroke="#4ff7ff" stroke-width="28" stroke-linecap="round" filter="url(#glowCyan)"/>
+  <line x1="410" y1="170" x2="410" y2="860" stroke="#ff4de8" stroke-width="28" stroke-linecap="round" filter="url(#glowPink)"/>
+  <line x1="640" y1="170" x2="640" y2="860" stroke="#e9ff3d" stroke-width="28" stroke-linecap="round" filter="url(#glowLime)"/>
+  <line x1="860" y1="170" x2="860" y2="860" stroke="#4ff7ff" stroke-width="28" stroke-linecap="round" filter="url(#glowCyan)"/>
+
+  <!-- Horizontal rungs (adjacent only) -->
+  <line x1="180" y1="300" x2="410" y2="300" stroke="#4ff7ff" stroke-width="24" stroke-linecap="round" filter="url(#glowCyan)"/>
+  <line x1="410" y1="375" x2="640" y2="375" stroke="#e9ff3d" stroke-width="24" stroke-linecap="round" filter="url(#glowLime)"/>
+  <line x1="640" y1="450" x2="860" y2="450" stroke="#ff4de8" stroke-width="24" stroke-linecap="round" filter="url(#glowPink)"/>
+  <line x1="180" y1="535" x2="410" y2="535" stroke="#e9ff3d" stroke-width="24" stroke-linecap="round" filter="url(#glowLime)"/>
+  <line x1="410" y1="610" x2="640" y2="610" stroke="#4ff7ff" stroke-width="24" stroke-linecap="round" filter="url(#glowCyan)"/>
+  <line x1="640" y1="685" x2="860" y2="685" stroke="#e9ff3d" stroke-width="24" stroke-linecap="round" filter="url(#glowLime)"/>
+</svg>
