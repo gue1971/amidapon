@@ -1,11 +1,11 @@
-const CACHE_NAME = "amidapon-v1";
+const CACHE_NAME = "amidapon-v2";
 const APP_SHELL = [
   "./",
   "index.html",
   "manifest.webmanifest",
-  "icons/icon-192.png",
-  "icons/icon-512.png",
-  "icons/icon-1024.png"
+  "icons/icon-192-v2.png",
+  "icons/icon-512-v2.png",
+  "icons/icon-180-v2.png"
 ];
 
 self.addEventListener("install", (event) => {
@@ -24,6 +24,22 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+
+  const url = new URL(event.request.url);
+  const isManifestOrIcon = url.pathname.endsWith("/manifest.webmanifest") || url.pathname.includes("/icons/");
+
+  if (isManifestOrIcon) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
