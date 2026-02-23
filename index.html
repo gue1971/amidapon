@@ -3,13 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#0f172a">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="あみだポン！">
-    <link rel="manifest" href="manifest.webmanifest">
-    <link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
-    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
     <title>あみだポン！</title>
     <style>
         :root {
@@ -218,6 +211,20 @@
             animation: shock 0.6s ease-in-out;
         }
 
+        /* シャッフルボタンの震えるアニメーション */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-3px) rotate(-2deg); }
+            75% { transform: translateX(3px) rotate(2deg); }
+        }
+        .shaking {
+            animation: shake 0.1s infinite;
+            background-color: #475569 !important;
+            color: #cbd5e1 !important;
+            box-shadow: none !important;
+            pointer-events: none;
+        }
+
         #center-mask {
             position: absolute;
             top: 50%;
@@ -226,7 +233,7 @@
             transform: translateY(-50%);
             background-color: rgba(15, 23, 42, 0.85);
             border-radius: 12px;
-            border: none; /* 外枠の点線を削除 */
+            border: none;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -313,7 +320,9 @@
             display: none;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
             width: 100%;
+            min-height: 160px; /* 全てのフェーズで外枠の高さを統一 */
         }
     </style>
 </head>
@@ -323,7 +332,7 @@
         <h1>あみだポン！</h1>
         <div class="header-buttons">
             <button class="header-btn" id="btn-retry-same" style="display:none;">もう一度</button>
-            <button class="header-btn" id="btn-reset-top">最初から</button>
+            <button class="header-btn" id="btn-reset-top">リセット</button>
         </div>
     </div>
 
@@ -337,7 +346,7 @@
         <div id="center-mask">
             <!-- 1. 線の数 -->
             <div id="setup-lines-ui" class="ui-panel">
-                <div class="mask-title">参加人数（くじの数）</div>
+                <div class="mask-title">人数（くじの数）</div>
                 <div class="setup-controls">
                     <button class="setup-btn" id="btn-minus-lines">-</button>
                     <div class="count-display" id="line-count">4</div>
@@ -346,23 +355,31 @@
                 <button class="action-btn" id="btn-next-lines">次へ</button>
             </div>
 
-            <!-- 2. くじ選択 -->
+            <!-- 2. 内容設定 (NEW) -->
+            <div id="setup-content-ui" class="ui-panel">
+                <div class="mask-title">結果を設定してね</div>
+                <div class="instruction-text">
+                    下枠タップで内容変更
+                </div>
+                <button class="action-btn" id="btn-next-content" style="margin-top: 15px;">次へ</button>
+            </div>
+
+            <!-- 3. くじ選択 -->
             <div id="select-ui" class="ui-panel">
                 <div class="mask-title">くじを選んでください</div>
                 <div class="current-player" id="current-player-label">Aさん</div>
                 <div class="instruction-text">
-                    上の丸いボタンをタップしてね<br>
-                    下枠タップで内容変更
+                    上の丸いボタンをタップしてね
                 </div>
             </div>
 
             <!-- 3. シャッフル -->
             <div id="shuffle-ui" class="ui-panel">
-                <button class="action-btn" id="btn-shuffle" style="margin-top: 10px;">シャッフル</button>
-                <button class="action-btn" id="btn-start-game" style="margin-top: 10px; display: none;">くじを引く！</button>
+                <button class="action-btn" id="btn-shuffle">シャッフル</button>
+                <button class="action-btn" id="btn-start-game" style="display: none;">スタート</button>
             </div>
 
-            <!-- 4. カウントダウン -->
+            <!-- 5. カウントダウン -->
             <div id="countdown-ui" class="ui-panel">
                 <div class="countdown-text" id="countdown-display">3</div>
             </div>
@@ -470,6 +487,11 @@
         let itemsData = []; 
         let drawnPaths = {}; 
 
+        // 非同期処理キャンセル用の管理変数
+        let currentRunId = 0;
+        let shuffleTimeoutId = null;
+        let countdownIntervalId = null;
+
         const VIEW_WIDTH = 300;
         const VIEW_HEIGHT = 600;
         const PADDING_TOP = 60;
@@ -485,6 +507,7 @@
             mask: document.getElementById('center-mask'),
             panels: {
                 lines: document.getElementById('setup-lines-ui'),
+                content: document.getElementById('setup-content-ui'),
                 select: document.getElementById('select-ui'),
                 shuffle: document.getElementById('shuffle-ui'),
                 countdown: document.getElementById('countdown-ui')
@@ -508,7 +531,12 @@
         }
 
         function init(fullReset = true) {
-            sound.initCtx(); // ユーザー操作フック
+            currentRunId++;
+            clearTimeout(shuffleTimeoutId);
+            clearInterval(countdownIntervalId);
+
+            sound.initCtx(); 
+            // fullReset=false（もう一度）の場合は、人数・内容は引き継いで「くじ選択」から
             state = fullReset ? 'SETUP_LINES' : 'SELECTING';
             if (fullReset) lineCount = 4;
             
@@ -524,6 +552,9 @@
             ui.mask.style.backdropFilter = 'blur(6px)';
             ui.btnRetrySame.style.display = 'none';
             
+            ui.btnShuffle.classList.remove('shaking');
+            ui.btnShuffle.disabled = false;
+            
             ui.linesGroup.innerHTML = '';
             ui.starts.innerHTML = '';
             if(fullReset) ui.results.innerHTML = '';
@@ -536,6 +567,8 @@
                 renderResults();
                 switchUI('lines');
                 ui.lineCount.innerText = lineCount;
+                // 最初は下枠変更不可
+                document.querySelectorAll('.result-input').forEach(input => input.disabled = true);
             } else {
                 renderResults(); 
                 ui.starts.childNodes.forEach(btn => {
@@ -544,7 +577,8 @@
                     btn.style.backgroundColor = '';
                     btn.style.boxShadow = '';
                 });
-                document.querySelectorAll('.result-input').forEach(input => input.disabled = false);
+                // 再プレイ時は下枠変更不可
+                document.querySelectorAll('.result-input').forEach(input => input.disabled = true);
                 switchUI('select');
                 updateSelectionUI();
             }
@@ -605,7 +639,8 @@
             ui.starts.innerHTML = '';
             for (let i = 0; i < lineCount; i++) {
                 const btn = document.createElement('div');
-                btn.className = state === 'SETUP_LINES' ? 'start-btn disabled' : 'start-btn';
+                // 内容設定フェーズまではdisabled
+                btn.className = (state === 'SETUP_LINES' || state === 'SETUP_CONTENT') ? 'start-btn disabled' : 'start-btn';
                 btn.innerText = i + 1;
                 btn.style.left = `${getLeftPercent(i)}%`;
                 btn.dataset.col = i;
@@ -643,7 +678,8 @@
                 icon.innerText = TYPES[item.typeKey].icon;
                 
                 icon.onclick = (e) => {
-                    if (state === 'SELECTING') {
+                    // 内容変更フェーズのみ変更可能
+                    if (state === 'SETUP_CONTENT') {
                         toggleType(item.id);
                         e.stopPropagation(); 
                     }
@@ -653,8 +689,10 @@
                 input.type = 'text';
                 input.className = 'result-input';
                 input.value = item.text;
-                input.disabled = (state !== 'SELECTING');
+                // 内容変更フェーズのみテキスト変更可能
+                input.disabled = (state !== 'SETUP_CONTENT');
                 input.oninput = (e) => item.text = e.target.value;
+                input.onfocus = (e) => e.target.select();
                 
                 dom.onclick = () => {
                     if (state === 'FINISHED') {
@@ -669,7 +707,7 @@
         }
 
         function toggleType(id) {
-            if (state !== 'SELECTING') return;
+            if (state !== 'SETUP_CONTENT') return;
             sound.toggle();
             const item = itemsData.find(d => d.id === id);
             let idx = TYPE_KEYS.indexOf(item.typeKey);
@@ -691,6 +729,9 @@
             ui.lineCount.innerText = lineCount;
         }
 
+        // --- フェーズ進行 ---
+
+        // 1. 線の数設定
         document.getElementById('btn-minus-lines').onclick = () => {
             sound.click();
             if (lineCount > 2) { lineCount--; updateBoard(); }
@@ -701,10 +742,20 @@
         };
         document.getElementById('btn-next-lines').onclick = () => {
             sound.click();
+            state = 'SETUP_CONTENT';
+            switchUI('content');
+            // 下枠の内容変更を許可
+            document.querySelectorAll('.result-input').forEach(b => b.disabled = false);
+        };
+
+        // 2. 内容設定
+        document.getElementById('btn-next-content').onclick = () => {
+            sound.click();
             state = 'SELECTING';
             switchUI('select');
+            // 下枠の内容変更をロックし、上のくじボタンを有効化
+            document.querySelectorAll('.result-input').forEach(b => b.disabled = true);
             document.querySelectorAll('.start-btn').forEach(b => b.classList.remove('disabled'));
-            document.querySelectorAll('.result-input').forEach(b => b.disabled = false);
             updateSelectionUI();
         };
 
@@ -718,6 +769,7 @@
             ui.playerLabel.style.color = getPlayerColor(currentPlayerIndex);
         }
 
+        // 3. くじ選択
         function handleLineSelection(lineIndex, btn) {
             if (state !== 'SELECTING' || btn.classList.contains('selected')) return;
 
@@ -730,7 +782,6 @@
 
             currentPlayerIndex++;
             if (currentPlayerIndex >= lineCount) {
-                document.querySelectorAll('.result-input').forEach(b => b.disabled = true);
                 state = 'SHUFFLING';
                 switchUI('shuffle');
                 ui.btnShuffle.style.display = 'block';
@@ -744,8 +795,10 @@
         ui.btnShuffle.onclick = startShuffle;
 
         function startShuffle() {
+            const runId = currentRunId;
             sound.click();
-            ui.btnShuffle.style.display = 'none';
+            ui.btnShuffle.disabled = true;
+            ui.btnShuffle.classList.add('shaking');
             
             let duration = 5000;
             const startTime = performance.now();
@@ -763,11 +816,14 @@
 
                 const dom1 = document.getElementById(itemsData[idx1].id);
                 const dom2 = document.getElementById(itemsData[idx2].id);
-                dom1.style.left = `${getLeftPercent(itemsData[idx1].colIndex)}%`;
-                dom2.style.left = `${getLeftPercent(itemsData[idx2].colIndex)}%`;
+                if(dom1 && dom2) {
+                    dom1.style.left = `${getLeftPercent(itemsData[idx1].colIndex)}%`;
+                    dom2.style.left = `${getLeftPercent(itemsData[idx2].colIndex)}%`;
+                }
             }
 
             function loop() {
+                if (runId !== currentRunId) return;
                 doSwap();
                 
                 const elapsed = performance.now() - startTime;
@@ -781,42 +837,52 @@
                 }
 
                 if (elapsed + currentDelay < duration) {
-                    setTimeout(loop, currentDelay);
+                    shuffleTimeoutId = setTimeout(loop, currentDelay);
                 } else {
-                    setTimeout(stopShuffle, Math.max(0, duration - elapsed));
+                    shuffleTimeoutId = setTimeout(() => stopShuffle(runId), Math.max(0, duration - elapsed));
                 }
             }
             loop();
         }
 
-        function stopShuffle() {
+        function stopShuffle(runId) {
+            if (runId !== currentRunId) return;
+            ui.btnShuffle.classList.remove('shaking');
+            ui.btnShuffle.disabled = false;
+            ui.btnShuffle.style.display = 'none';
+
             itemsData.forEach(item => {
                 if (item.typeKey === 'ATARI' || item.typeKey === 'DOBON') {
                     const dom = document.getElementById(item.id);
-                    dom.classList.add('highlight-pop');
-                    setTimeout(() => dom.classList.remove('highlight-pop'), 600);
+                    if(dom) {
+                        dom.classList.add('highlight-pop');
+                        setTimeout(() => { if (runId === currentRunId) dom.classList.remove('highlight-pop'); }, 600);
+                    }
                 }
             });
-            // シャッフル完了時はサウンドは鳴らさず視覚効果のみ
 
             ui.btnStartGame.style.display = 'block';
             ui.btnStartGame.onclick = () => {
+                if (runId !== currentRunId) return;
                 sound.click();
                 state = 'COUNTDOWN';
                 switchUI('countdown');
-                startCountdown();
+                startCountdown(runId);
             };
         }
 
-        function startCountdown() {
-            ui.mask.style.backgroundColor = 'transparent';
-            ui.mask.style.backdropFilter = 'none';
+        function startCountdown(runId) {
+            if (!runId) runId = currentRunId;
 
             let count = 3;
             ui.countdown.innerText = count;
             sound.countdown();
 
-            const countInterval = setInterval(() => {
+            countdownIntervalId = setInterval(() => {
+                if (runId !== currentRunId) {
+                    clearInterval(countdownIntervalId);
+                    return;
+                }
                 count--;
                 if (count > 0) {
                     sound.countdown();
@@ -826,30 +892,34 @@
                     ui.countdown.style.animation = null; 
                 } else {
                     sound.start();
-                    clearInterval(countInterval);
-                    startPlayingPhase();
+                    clearInterval(countdownIntervalId);
+                    startPlayingPhase(runId);
                 }
             }, 1000);
         }
 
-        function startPlayingPhase() {
+        function startPlayingPhase(runId) {
             state = 'PLAYING';
             ui.mask.style.opacity = '0';
             setTimeout(() => {
+                if (runId !== currentRunId) return;
                 ui.mask.style.display = 'none';
                 ui.mask.style.pointerEvents = 'none';
-                runAllAnimations();
+                runAllAnimations(runId);
             }, 400);
         }
 
-        async function runAllAnimations() {
+        async function runAllAnimations(runId) {
             for (let i = 0; i < lineCount; i++) {
+                if (runId !== currentRunId) return;
                 const selection = selections.find(s => s.playerIndex === i);
                 if (selection) {
-                    await animatePathSegmented(selection.lineIndex, selection.playerIndex);
+                    await animatePathSegmented(selection.lineIndex, selection.playerIndex, runId);
+                    if (runId !== currentRunId) return;
                     await new Promise(r => setTimeout(r, 400));
                 }
             }
+            if (runId !== currentRunId) return;
             state = 'FINISHED';
             ui.btnRetrySame.style.display = 'block';
             
@@ -885,7 +955,7 @@
             return { coords, finalCol: col };
         }
 
-        async function animatePathSegmented(startIndex, playerIndex) {
+        async function animatePathSegmented(startIndex, playerIndex, runId) {
             const { coords, finalCol } = getPathCoords(startIndex);
             const color = getPlayerColor(playerIndex);
             
@@ -909,17 +979,18 @@
             ui.tracer.style.filter = `drop-shadow(0 0 6px ${color})`;
 
             for (let i = 0; i < coords.length - 1; i++) {
+                if (runId !== currentRunId) return;
                 const start = coords[i];
                 const end = coords[i+1];
                 const dist = Math.hypot(end.x - start.x, end.y - start.y);
                 const duration = dist * 2; 
 
-                // 線を引き始める時の音
                 sound.moveTick();
 
                 await new Promise(resolve => {
                     const st = performance.now();
                     function step(now) {
+                        if (runId !== currentRunId) return resolve();
                         const elapsed = now - st;
                         const p = Math.min(elapsed / duration, 1);
                         const cx = start.x + (end.x - start.x) * p;
@@ -938,11 +1009,15 @@
                     requestAnimationFrame(step);
                 });
 
+                if (runId !== currentRunId) return;
+
                 if (i < coords.length - 2) {
-                    sound.corner(); // 曲がるタメの瞬間の音
+                    sound.corner(); 
                     await new Promise(r => setTimeout(r, 80));
                 }
             }
+
+            if (runId !== currentRunId) return;
 
             ui.tracer.style.display = 'none';
             
@@ -956,12 +1031,12 @@
                 sound.atari();
                 resDom.classList.add('highlight-pop');
                 await new Promise(r => setTimeout(r, 600)); 
-                resDom.classList.remove('highlight-pop');
+                if (runId === currentRunId) resDom.classList.remove('highlight-pop');
             } else if (finalItem.typeKey === 'DOBON') {
                 sound.dobon();
                 resDom.classList.add('highlight-shock');
                 await new Promise(r => setTimeout(r, 600)); 
-                resDom.classList.remove('highlight-shock');
+                if (runId === currentRunId) resDom.classList.remove('highlight-shock');
             } else {
                 sound.hazure();
                 await new Promise(r => setTimeout(r, 300));
@@ -991,12 +1066,6 @@
 
         document.getElementById('btn-reset-top').onclick = () => { sound.click(); init(true); };
         document.getElementById('btn-retry-same').onclick = () => { sound.click(); init(false); };
-
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('service-worker.js').catch(() => {});
-            });
-        }
 
         init(true);
 
