@@ -463,16 +463,38 @@
 
         function generateRungs() {
             rungs = [];
+            const startY = PADDING_TOP + 20;
+            const endY = VIEW_HEIGHT - PADDING_BOTTOM - 20;
+            const availableHeight = endY - startY;
+
             for (let i = 0; i < lineCount - 1; i++) {
-                const numRungs = Math.floor(Math.random() * 4) + 3;
+                const numRungs = Math.floor(Math.random() * 4) + 3; // 3〜6本の横線
+                const step = availableHeight / numRungs;
                 for (let j = 0; j < numRungs; j++) {
-                    const y = PADDING_TOP + 20 + Math.random() * (VIEW_HEIGHT - PADDING_TOP - PADDING_BOTTOM - 40);
+                    // 各区間の中でランダムな位置に配置
+                    const y = startY + (j * step) + Math.random() * (step * 0.6) + (step * 0.2);
                     rungs.push({ col: i, y: y });
                 }
             }
+            
+            // Y座標でソート
             rungs.sort((a, b) => a.y - b.y);
+            
+            // パス計算が狂わないように、Y座標が近すぎる場合は最低限(4px)だけ間隔を空ける
             for (let i = 1; i < rungs.length; i++) {
-                if (rungs[i].y - rungs[i-1].y < 20) rungs[i].y = rungs[i-1].y + 20;
+                if (rungs[i].y - rungs[i-1].y < 4) {
+                    rungs[i].y = rungs[i-1].y + 4;
+                }
+            }
+
+            // 調整の結果、一番下の線が枠をはみ出したら全体を少し圧縮して収める
+            const maxY = VIEW_HEIGHT - PADDING_BOTTOM - 10;
+            const lastY = rungs[rungs.length - 1].y;
+            if (lastY > maxY) {
+                const scale = (maxY - startY) / (lastY - startY);
+                rungs.forEach(rung => {
+                    rung.y = startY + (rung.y - startY) * scale;
+                });
             }
         }
 
@@ -571,11 +593,23 @@
         }
 
         // --- フェーズ1: SETUP ---
+        function updateBoard() {
+            ui.linesGroup.innerHTML = '';
+            ui.starts.innerHTML = '';
+            ui.results.innerHTML = '';
+            generateRungs();
+            drawLines();
+            initItemsData();
+            renderResults();
+            renderStarts();
+            ui.lineCount.innerText = lineCount;
+        }
+
         document.getElementById('btn-minus-lines').onclick = () => {
-            if (lineCount > 2) { lineCount--; init(true); }
+            if (lineCount > 2) { lineCount--; updateBoard(); }
         };
         document.getElementById('btn-plus-lines').onclick = () => {
-            if (lineCount < 8) { lineCount++; init(true); }
+            if (lineCount < 8) { lineCount++; updateBoard(); }
         };
         document.getElementById('btn-next-lines').onclick = () => {
             state = 'SELECTING';
