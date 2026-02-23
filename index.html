@@ -106,9 +106,11 @@
             cursor: pointer;
             pointer-events: auto;
             transform: translateX(-50%);
-            transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
+            transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s, color 0.2s;
             box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
             user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            outline: none;
         }
         .start-btn:active { transform: translateX(-50%) scale(0.9); }
         .start-btn.disabled {
