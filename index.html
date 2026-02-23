@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
     <title>あみだポン！</title>
     <style>
         :root {
@@ -1066,6 +1070,12 @@
 
         document.getElementById('btn-reset-top').onclick = () => { sound.click(); init(true); };
         document.getElementById('btn-retry-same').onclick = () => { sound.click(); init(false); };
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js').catch(() => {});
+            });
+        }
 
         init(true);
 
