@@ -344,7 +344,6 @@
         <svg id="amida-svg" viewBox="0 0 300 600" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
             <g id="lines-group"></g>
             <g id="path-group"></g>
-            <circle id="tracer" r="6" fill="#fff" style="display: none; filter: drop-shadow(0 0 8px #fff);" />
         </svg>
 
         <div id="center-mask">
@@ -505,7 +504,6 @@
         const ui = {
             linesGroup: document.getElementById('lines-group'),
             pathGroup: document.getElementById('path-group'),
-            tracer: document.getElementById('tracer'),
             starts: document.getElementById('starts'),
             results: document.getElementById('results'),
             mask: document.getElementById('center-mask'),
@@ -548,7 +546,6 @@
             selections = [];
             drawnPaths = {};
             ui.pathGroup.innerHTML = '';
-            ui.tracer.style.display = 'none';
             ui.mask.style.opacity = '1';
             ui.mask.style.pointerEvents = 'auto';
             ui.mask.style.display = 'flex';
@@ -978,10 +975,6 @@
             let d = `M ${coords[0].x} ${coords[0].y}`;
             path.setAttribute('d', d);
 
-            ui.tracer.style.display = 'block';
-            ui.tracer.setAttribute('fill', color);
-            ui.tracer.style.filter = `drop-shadow(0 0 6px ${color})`;
-
             for (let i = 0; i < coords.length - 1; i++) {
                 if (runId !== currentRunId) return;
                 const start = coords[i];
@@ -1001,8 +994,6 @@
                         const cy = start.y + (end.y - start.y) * p;
 
                         path.setAttribute('d', d + ` L ${cx} ${cy}`);
-                        ui.tracer.setAttribute('cx', cx);
-                        ui.tracer.setAttribute('cy', cy);
 
                         if (p < 1) requestAnimationFrame(step);
                         else {
@@ -1022,8 +1013,6 @@
             }
 
             if (runId !== currentRunId) return;
-
-            ui.tracer.style.display = 'none';
             
             const finalItem = itemsData.find(d => d.colIndex === finalCol);
             const resDom = document.getElementById(finalItem.id);
