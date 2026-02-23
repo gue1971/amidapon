@@ -82,7 +82,6 @@
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
         }
         
-        /* くじの選択ボタン（上部） */
         .starts-container {
             position: absolute;
             top: 15px;
@@ -125,7 +124,6 @@
             transform: translateX(-50%) scale(1.1);
         }
 
-        /* 結果アイテム（下部） */
         .results-container {
             position: absolute;
             bottom: 10px;
@@ -185,7 +183,6 @@
             pointer-events: none; 
         }
         
-        /* 目立つアニメーション (全体を跳ねさせる) */
         @keyframes pop {
             0% { transform: translateX(-50%) scale(1); }
             50% { transform: translateX(-50%) scale(1.2); filter: drop-shadow(0 0 15px rgba(255,255,255,0.5)); z-index: 50; }
@@ -195,7 +192,6 @@
             animation: pop 0.6s ease-out;
         }
 
-        /* ドボン用の強烈なアニメーション */
         @keyframes shock {
             0% { transform: translateX(-50%) translate(0, 0); }
             10% { transform: translateX(-50%) translate(-4px, -4px) rotate(-5deg); filter: drop-shadow(0 0 20px rgba(244,63,94,0.8)); z-index: 50; }
@@ -213,7 +209,6 @@
             animation: shock 0.6s ease-in-out;
         }
 
-        /* 中央マスク（UI） - 上下中央配置に変更 */
         #center-mask {
             position: absolute;
             top: 50%;
@@ -222,6 +217,7 @@
             transform: translateY(-50%);
             background-color: rgba(15, 23, 42, 0.85);
             border-radius: 12px;
+            border: none; /* 外枠の点線を削除 */
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -368,10 +364,88 @@
     </div>
 
     <script>
+        // --- サウンドマネージャー（Web Audio APIによるレトロSE合成） ---
+        class SoundManager {
+            constructor() {
+                this.ctx = null;
+            }
+            initCtx() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+            playTone(type, freq, freqEnd, duration, vol) {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                if (freqEnd) {
+                    osc.frequency.exponentialRampToValueAtTime(freqEnd, this.ctx.currentTime + duration);
+                }
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+            
+            click() { this.initCtx(); this.playTone('triangle', 800, 200, 0.05, 0.1); }
+            toggle() { this.initCtx(); this.playTone('sine', 300, 500, 0.1, 0.1); }
+            select() { this.initCtx(); this.playTone('square', 500, 800, 0.1, 0.05); }
+            shuffle() { this.initCtx(); this.playTone('sawtooth', 200, null, 0.02, 0.05); }
+            countdown() { this.initCtx(); this.playTone('square', 440, null, 0.1, 0.05); }
+            start() { this.initCtx(); this.playTone('square', 880, null, 0.4, 0.05); }
+            moveTick() { this.initCtx(); this.playTone('sine', 600, 400, 0.03, 0.02); }
+            corner() { this.initCtx(); this.playTone('triangle', 1200, 800, 0.05, 0.05); }
+            
+            atari() {
+                this.initCtx();
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C, E, G, C(High)
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'square';
+                    const t = this.ctx.currentTime + i * 0.08;
+                    osc.frequency.setValueAtTime(freq, t);
+                    gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(0.1, t);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(t); osc.stop(t + 0.4);
+                });
+            }
+            
+            dobon() {
+                this.initCtx();
+                [150, 160, 175].forEach(freq => { // 不協和音
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(freq / 1.5, this.ctx.currentTime + 0.6);
+                    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.6);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(); osc.stop(this.ctx.currentTime + 0.6);
+                });
+            }
+            
+            hazure() {
+                this.initCtx();
+                this.playTone('triangle', 300, 100, 0.3, 0.1);
+            }
+        }
+        const sound = new SoundManager();
+
+        // --- メインロジック ---
         const svgns = "http://www.w3.org/2000/svg";
         const playerNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
         
-        // アイコン変更
         const TYPES = {
             ATARI:  { icon: '⭐', defaultText: 'あたり', color: '#fbbf24' },
             DOBON:  { icon: '💀', defaultText: 'ドボン', color: '#f43f5e' },
@@ -425,6 +499,7 @@
         }
 
         function init(fullReset = true) {
+            sound.initCtx(); // ユーザー操作フック
             state = fullReset ? 'SETUP_LINES' : 'SELECTING';
             if (fullReset) lineCount = 4;
             
@@ -586,6 +661,7 @@
 
         function toggleType(id) {
             if (state !== 'SELECTING') return;
+            sound.toggle();
             const item = itemsData.find(d => d.id === id);
             let idx = TYPE_KEYS.indexOf(item.typeKey);
             idx = (idx + 1) % TYPE_KEYS.length;
@@ -607,12 +683,15 @@
         }
 
         document.getElementById('btn-minus-lines').onclick = () => {
+            sound.click();
             if (lineCount > 2) { lineCount--; updateBoard(); }
         };
         document.getElementById('btn-plus-lines').onclick = () => {
+            sound.click();
             if (lineCount < 8) { lineCount++; updateBoard(); }
         };
         document.getElementById('btn-next-lines').onclick = () => {
+            sound.click();
             state = 'SELECTING';
             switchUI('select');
             document.querySelectorAll('.start-btn').forEach(b => b.classList.remove('disabled'));
@@ -633,6 +712,7 @@
         function handleLineSelection(lineIndex, btn) {
             if (state !== 'SELECTING' || btn.classList.contains('selected')) return;
 
+            sound.select();
             selections.push({ playerIndex: currentPlayerIndex, lineIndex: lineIndex });
             btn.classList.add('selected');
             btn.innerText = playerNames[currentPlayerIndex];
@@ -655,13 +735,15 @@
         ui.btnShuffle.onclick = startShuffle;
 
         function startShuffle() {
+            sound.click();
             ui.btnShuffle.style.display = 'none';
             
             let duration = 5000;
             const startTime = performance.now();
-            let currentDelay = 400; // 初期速度
+            let currentDelay = 400;
 
             function doSwap() {
+                sound.shuffle();
                 let idx1 = Math.floor(Math.random() * lineCount);
                 let idx2 = Math.floor(Math.random() * lineCount);
                 while (idx1 === idx2) idx2 = Math.floor(Math.random() * lineCount);
@@ -681,19 +763,17 @@
                 
                 const elapsed = performance.now() - startTime;
                 
-                // 5秒間で完結するテンポの制御
                 if (elapsed < 2500) {
-                    currentDelay = Math.max(50, currentDelay * 0.8); // 0〜2.5秒: 徐々に加速
+                    currentDelay = Math.max(50, currentDelay * 0.8); 
                 } else if (elapsed < 3500) {
-                    currentDelay = 50;  // 2.5〜3.5秒: 最高速
+                    currentDelay = 50;  
                 } else {
-                    currentDelay = 600; // 3.5〜5秒: 超減速（残り時間で約2回変わる）
+                    currentDelay = 600; 
                 }
 
                 if (elapsed + currentDelay < duration) {
                     setTimeout(loop, currentDelay);
                 } else {
-                    // 残り時間がcurrentDelay未満ならすぐ終了処理へ
                     setTimeout(stopShuffle, Math.max(0, duration - elapsed));
                 }
             }
@@ -701,7 +781,6 @@
         }
 
         function stopShuffle() {
-            // シャッフル確定後のアニメーション（当たり・ドボン共通でpop）
             itemsData.forEach(item => {
                 if (item.typeKey === 'ATARI' || item.typeKey === 'DOBON') {
                     const dom = document.getElementById(item.id);
@@ -709,9 +788,11 @@
                     setTimeout(() => dom.classList.remove('highlight-pop'), 600);
                 }
             });
+            // シャッフル完了時はサウンドは鳴らさず視覚効果のみ
 
             ui.btnStartGame.style.display = 'block';
             ui.btnStartGame.onclick = () => {
+                sound.click();
                 state = 'COUNTDOWN';
                 switchUI('countdown');
                 startCountdown();
@@ -724,15 +805,18 @@
 
             let count = 3;
             ui.countdown.innerText = count;
+            sound.countdown();
 
             const countInterval = setInterval(() => {
                 count--;
                 if (count > 0) {
+                    sound.countdown();
                     ui.countdown.innerText = count;
                     ui.countdown.style.animation = 'none';
                     ui.countdown.offsetHeight; 
                     ui.countdown.style.animation = null; 
                 } else {
+                    sound.start();
                     clearInterval(countInterval);
                     startPlayingPhase();
                 }
@@ -821,6 +905,9 @@
                 const dist = Math.hypot(end.x - start.x, end.y - start.y);
                 const duration = dist * 2; 
 
+                // 線を引き始める時の音
+                sound.moveTick();
+
                 await new Promise(resolve => {
                     const st = performance.now();
                     function step(now) {
@@ -843,6 +930,7 @@
                 });
 
                 if (i < coords.length - 2) {
+                    sound.corner(); // 曲がるタメの瞬間の音
                     await new Promise(r => setTimeout(r, 80));
                 }
             }
@@ -856,17 +944,23 @@
             resInput.style.boxShadow = `0 0 10px ${color}80`;
 
             if (finalItem.typeKey === 'ATARI') {
+                sound.atari();
                 resDom.classList.add('highlight-pop');
                 await new Promise(r => setTimeout(r, 600)); 
                 resDom.classList.remove('highlight-pop');
             } else if (finalItem.typeKey === 'DOBON') {
+                sound.dobon();
                 resDom.classList.add('highlight-shock');
                 await new Promise(r => setTimeout(r, 600)); 
                 resDom.classList.remove('highlight-shock');
+            } else {
+                sound.hazure();
+                await new Promise(r => setTimeout(r, 300));
             }
         }
 
         function highlightPath(targetPath) {
+            sound.click();
             Object.values(drawnPaths).forEach(p => {
                 p.setAttribute('opacity', '0.2');
                 p.setAttribute('stroke-width', '3');
@@ -886,8 +980,8 @@
             if (path) highlightPath(path);
         }
 
-        document.getElementById('btn-reset-top').onclick = () => init(true);
-        document.getElementById('btn-retry-same').onclick = () => init(false); 
+        document.getElementById('btn-reset-top').onclick = () => { sound.click(); init(true); };
+        document.getElementById('btn-retry-same').onclick = () => { sound.click(); init(false); };
 
         init(true);
 
