@@ -1,11 +1,11 @@
-const CACHE_NAME = "amidapon-v3";
+const CACHE_NAME = "amidapon-cache-v4";
 const APP_SHELL = [
   "./",
   "index.html",
   "manifest.webmanifest",
-  "icons/icon-192-v3.png",
-  "icons/icon-512-v3.png",
-  "icons/icon-180-v3.png"
+  "icons/icon-192.png",
+  "icons/icon-512.png",
+  "icons/icon-180.png"
 ];
 
 self.addEventListener("install", (event) => {
