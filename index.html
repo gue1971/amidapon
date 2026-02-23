@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Advanced Amidakuji</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --surface-color: #1e293b;
+            --primary-color: #38bdf8;
+            --text-color: #f8fafc;
+            --highlight-color: #fbbf24;
+            --danger-color: #f43f5e;
+            --success-color: #4ade80;
+        }
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px 0;
+            touch-action: none;
+            overflow: hidden;
+        }
+        .header {
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 15px;
+            box-sizing: border-box;
+            margin-bottom: 5px;
+        }
+        h1 {
+            font-size: 1.2rem;
+            margin: 0;
+            color: var(--primary-color);
+            letter-spacing: 2px;
+        }
+        .header-btn {
+            background: none;
+            border: 1px solid #475569;
+            color: #94a3b8;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+        .header-btn:active { background-color: #334155; }
+
+        #app-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            height: 78vh;
+            max-height: 700px;
+            display: flex;
+            flex-direction: column;
+        }
+        svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background-color: var(--surface-color);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+        
+        /* くじの選択ボタン（上部） */
+        .starts-container {
+            position: absolute;
+            top: 15px;
+            left: 0;
+            width: 100%;
+            height: 40px;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .start-btn {
+            position: absolute;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            color: var(--bg-color);
+            font-weight: bold;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            pointer-events: auto;
+            transform: translateX(-50%);
+            transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+            user-select: none;
+        }
+        .start-btn:active { transform: translateX(-50%) scale(0.9); }
+        .start-btn.disabled {
+            background-color: #475569;
+            color: #94a3b8;
+            pointer-events: none;
+            box-shadow: none;
+        }
+        .start-btn.selected {
+            background-color: var(--highlight-color);
+            color: #78350f;
+            pointer-events: none;
+            transform: translateX(-50%) scale(1.1);
+        }
+
+        /* 結果アイテム（下部） */
+        .results-container {
+            position: absolute;
+            bottom: 10px;
+            left: 0;
+            width: 100%;
+            height: 130px;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .result-item {
+            position: absolute;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: auto;
+            transform: translateX(-50%);
+            transition: left 0.3s cubic-bezier(0.25, 1, 0.5, 1); /* シャッフル時の移動アニメーション */
+        }
+        .result-icon {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+            cursor: pointer;
+            user-select: none;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+            transition: transform 0.2s;
+        }
+        .result-icon:active { transform: scale(0.8); }
+        .result-input {
+            width: 30px;
+            height: 90px;
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: bold;
+            padding: 5px 2px;
+            border-radius: 6px;
+            border: 2px solid #475569;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Yu Mincho', 'MS Mincho', 'Hiragino Mincho ProN', serif;
+            letter-spacing: 2px;
+            transition: all 0.2s ease;
+        }
+        .result-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+        }
+        .result-input:disabled {
+            border-color: transparent;
+            background-color: #334155;
+            color: #cbd5e1;
+            opacity: 1;
+        }
+        /* 目立つアニメーション */
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); filter: drop-shadow(0 0 10px rgba(255,255,255,0.8)); }
+            100% { transform: scale(1); }
+        }
+        .highlight-pop .result-icon {
+            animation: pop 0.5s ease-out;
+        }
+
+        /* 中央マスク（UI） */
+        #center-mask {
+            position: absolute;
+            top: 100px; /* 上部のはしごを見せる */
+            bottom: 160px; /* 下部のはしごを見せる */
+            left: 10px;
+            right: 10px;
+            background-color: rgba(15, 23, 42, 0.85);
+            border-radius: 12px;
+            border: 1px dashed var(--primary-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            padding: 20px;
+            box-sizing: border-box;
+            backdrop-filter: blur(6px);
+            transition: opacity 0.4s ease;
+        }
+        .mask-title {
+            font-size: 1.3rem;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .setup-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .setup-btn {
+            background-color: #475569;
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+        .count-display {
+            font-size: 2rem;
+            font-weight: bold;
+            width: 40px;
+            text-align: center;
+        }
+        .action-btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            background-color: var(--primary-color);
+            color: var(--bg-color);
+            transition: transform 0.1s, opacity 0.3s;
+            box-shadow: 0 4px 10px rgba(56,189,248,0.3);
+        }
+        .action-btn:active { transform: scale(0.95); }
+        .action-btn.danger { background-color: var(--danger-color); color: white; box-shadow: 0 4px 10px rgba(244,63,94,0.3); }
+        .action-btn:disabled { opacity: 0; pointer-events: none; }
+        
+        .instruction-text {
+            font-size: 0.9rem;
+            color: #cbd5e1;
+            margin-bottom: 10px;
+            text-align: center;
+            line-height: 1.5;
+        }
+        .current-player {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--highlight-color);
+            margin-bottom: 20px;
+        }
+        .countdown-text {
+            font-size: 6rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            text-shadow: 0 0 20px rgba(56, 189, 248, 0.6);
+            animation: pulse 1s infinite ease-in-out;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(0.8); opacity: 0.5; }
+        }
+
+        .ui-panel {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+
+        /* 終了後のリトライ用オーバーレイ */
+        #retry-overlay {
+            position: absolute;
+            top: 30%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            z-index: 30;
+            background: rgba(15, 23, 42, 0.9);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--highlight-color);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>AMIDAKUJI</h1>
+        <button class="header-btn" id="btn-reset-top">最初から</button>
+    </div>
+
+    <div id="app-container">
+        <!-- はしご描画用SVG -->
+        <svg id="amida-svg" viewBox="0 0 300 600" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+            <g id="lines-group"></g>
+            <g id="path-group"></g>
+            <circle id="tracer" r="6" fill="#fff" style="display: none; filter: drop-shadow(0 0 8px #fff);" />
+        </svg>
+
+        <!-- UIマスク -->
+        <div id="center-mask">
+            <!-- 1. 線の数 -->
+            <div id="setup-lines-ui" class="ui-panel">
+                <div class="mask-title">参加人数（くじの数）</div>
+                <div class="setup-controls">
+                    <button class="setup-btn" id="btn-minus-lines">-</button>
+                    <div class="count-display" id="line-count">4</div>
+                    <button class="setup-btn" id="btn-plus-lines">+</button>
+                </div>
+                <button class="action-btn" id="btn-next-lines">次へ</button>
+            </div>
+
+            <!-- 2. くじ選択 -->
+            <div id="select-ui" class="ui-panel">
+                <div class="mask-title">くじを選んでください</div>
+                <div class="current-player" id="current-player-label">Aさん</div>
+                <div class="instruction-text">
+                    上の丸いボタンをタップしてね<br>
+                    下枠のアイコンタップで内容(当たり/ドボン)を変更できます
+                </div>
+            </div>
+
+            <!-- 3. シャッフル -->
+            <div id="shuffle-ui" class="ui-panel">
+                <div class="mask-title">シャッフル</div>
+                <div class="instruction-text">5秒後に自動で止まります</div>
+                <button class="action-btn" id="btn-shuffle" style="margin-top: 20px;">スタート</button>
+                <button class="action-btn" id="btn-start-game" style="margin-top: 20px; display: none;">くじを引く！</button>
+            </div>
+
+            <!-- 4. カウントダウン -->
+            <div id="countdown-ui" class="ui-panel">
+                <div class="countdown-text" id="countdown-display">3</div>
+            </div>
+        </div>
+
+        <!-- 終了後メニュー -->
+        <div id="retry-overlay">
+            <button class="action-btn" id="btn-retry-same">もう一度（同じ設定）</button>
+            <button class="header-btn" id="btn-retry-new" style="border:none; text-decoration:underline;">設定をやり直す</button>
+        </div>
+
+        <div class="starts-container" id="starts"></div>
+        <div class="results-container" id="results"></div>
+    </div>
+
+    <script>
+        const svgns = "http://www.w3.org/2000/svg";
+        const playerNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+        
+        // アイコンとテキストの設定
+        const TYPES = {
+            ATARI:  { icon: '💮', defaultText: 'あたり', color: '#fbbf24' },
+            DOBON:  { icon: '💀', defaultText: 'ドボン', color: '#f43f5e' },
+            HAZURE: { icon: '➖', defaultText: 'はずれ', color: '#94a3b8' }
+        };
+        const TYPE_KEYS = ['ATARI', 'HAZURE', 'DOBON'];
+
+        let state = 'SETUP_LINES'; 
+        let lineCount = 4;
+        let currentPlayerIndex = 0;
+        let selections = []; 
+        let rungs = [];
+        let itemsData = []; // 結果欄のデータ [{id, typeKey, text, colIndex}]
+        let drawnPaths = {}; // playerIndex -> path node
+
+        const VIEW_WIDTH = 300;
+        const VIEW_HEIGHT = 600;
+        const PADDING_TOP = 60;
+        const PADDING_BOTTOM = 140; 
+        const PADDING_SIDE = 30;
+
+        // DOM
+        const ui = {
+            linesGroup: document.getElementById('lines-group'),
+            pathGroup: document.getElementById('path-group'),
+            tracer: document.getElementById('tracer'),
+            starts: document.getElementById('starts'),
+            results: document.getElementById('results'),
+            mask: document.getElementById('center-mask'),
+            panels: {
+                lines: document.getElementById('setup-lines-ui'),
+                select: document.getElementById('select-ui'),
+                shuffle: document.getElementById('shuffle-ui'),
+                countdown: document.getElementById('countdown-ui')
+            },
+            lineCount: document.getElementById('line-count'),
+            playerLabel: document.getElementById('current-player-label'),
+            btnShuffle: document.getElementById('btn-shuffle'),
+            btnStartGame: document.getElementById('btn-start-game'),
+            countdown: document.getElementById('countdown-display'),
+            retryOverlay: document.getElementById('retry-overlay')
+        };
+
+        function switchUI(panelName) {
+            Object.values(ui.panels).forEach(p => p.style.display = 'none');
+            if (ui.panels[panelName]) ui.panels[panelName].style.display = 'flex';
+        }
+
+        function getLeftPercent(colIndex) {
+            const lineSpacing = (VIEW_WIDTH - PADDING_SIDE * 2) / (lineCount - 1);
+            return (PADDING_SIDE + colIndex * lineSpacing) / VIEW_WIDTH * 100;
+        }
+
+        function init(fullReset = true) {
+            state = fullReset ? 'SETUP_LINES' : 'SELECTING';
+            if (fullReset) lineCount = 4;
+            
+            currentPlayerIndex = 0;
+            selections = [];
+            drawnPaths = {};
+            ui.pathGroup.innerHTML = '';
+            ui.tracer.style.display = 'none';
+            ui.mask.style.opacity = '1';
+            ui.mask.style.pointerEvents = 'auto';
+            ui.mask.style.display = 'flex';
+            ui.retryOverlay.style.display = 'none';
+            
+            ui.linesGroup.innerHTML = '';
+            ui.starts.innerHTML = '';
+            if(fullReset) ui.results.innerHTML = '';
+
+            generateRungs();
+            drawLines();
+            
+            if (fullReset) {
+                initItemsData();
+                renderResults();
+                switchUI('lines');
+                ui.lineCount.innerText = lineCount;
+            } else {
+                renderResults(); // colIndexが変わるため再描画
+                ui.starts.childNodes.forEach(btn => {
+                    btn.classList.remove('selected', 'disabled');
+                    btn.innerText = parseInt(btn.dataset.col) + 1;
+                    btn.style.backgroundColor = '';
+                    btn.style.boxShadow = '';
+                });
+                document.querySelectorAll('.result-input').forEach(input => input.disabled = false);
+                switchUI('select');
+                updateSelectionUI();
+            }
+            renderStarts();
+        }
+
+        function generateRungs() {
+            rungs = [];
+            for (let i = 0; i < lineCount - 1; i++) {
+                const numRungs = Math.floor(Math.random() * 4) + 3;
+                for (let j = 0; j < numRungs; j++) {
+                    const y = PADDING_TOP + 20 + Math.random() * (VIEW_HEIGHT - PADDING_TOP - PADDING_BOTTOM - 40);
+                    rungs.push({ col: i, y: y });
+                }
+            }
+            rungs.sort((a, b) => a.y - b.y);
+            for (let i = 1; i < rungs.length; i++) {
+                if (rungs[i].y - rungs[i-1].y < 20) rungs[i].y = rungs[i-1].y + 20;
+            }
+        }
+
+        function drawLines() {
+            const lineSpacing = (VIEW_WIDTH - PADDING_SIDE * 2) / (lineCount - 1);
+            for (let i = 0; i < lineCount; i++) {
+                const x = PADDING_SIDE + i * lineSpacing;
+                const line = document.createElementNS(svgns, 'line');
+                line.setAttribute('x1', x); line.setAttribute('y1', PADDING_TOP);
+                line.setAttribute('x2', x); line.setAttribute('y2', VIEW_HEIGHT - PADDING_BOTTOM);
+                line.setAttribute('stroke', '#475569'); line.setAttribute('stroke-width', '3');
+                ui.linesGroup.appendChild(line);
+            }
+            rungs.forEach(rung => {
+                const x1 = PADDING_SIDE + rung.col * lineSpacing;
+                const x2 = x1 + lineSpacing;
+                const line = document.createElementNS(svgns, 'line');
+                line.setAttribute('x1', x1); line.setAttribute('y1', rung.y);
+                line.setAttribute('x2', x2); line.setAttribute('y2', rung.y);
+                line.setAttribute('stroke', '#475569'); line.setAttribute('stroke-width', '3');
+                ui.linesGroup.appendChild(line);
+            });
+        }
+
+        function renderStarts() {
+            ui.starts.innerHTML = '';
+            for (let i = 0; i < lineCount; i++) {
+                const btn = document.createElement('div');
+                btn.className = state === 'SETUP_LINES' ? 'start-btn disabled' : 'start-btn';
+                btn.innerText = i + 1;
+                btn.style.left = `${getLeftPercent(i)}%`;
+                btn.dataset.col = i;
+                btn.onclick = () => handleLineSelection(i, btn);
+                ui.starts.appendChild(btn);
+            }
+        }
+
+        function initItemsData() {
+            itemsData = [];
+            for (let i = 0; i < lineCount; i++) {
+                // デフォルト：1個目あたり、最後ドボン、他はずれ
+                let type = 'HAZURE';
+                if (i === 0) type = 'ATARI';
+                else if (i === lineCount - 1 && lineCount > 2) type = 'DOBON';
+
+                itemsData.push({
+                    id: `res-${i}`,
+                    typeKey: type,
+                    text: TYPES[type].defaultText,
+                    colIndex: i
+                });
+            }
+        }
+
+        function renderResults() {
+            ui.results.innerHTML = '';
+            itemsData.forEach(item => {
+                const dom = document.createElement('div');
+                dom.className = 'result-item';
+                dom.id = item.id;
+                dom.style.left = `${getLeftPercent(item.colIndex)}%`;
+
+                const icon = document.createElement('div');
+                icon.className = 'result-icon';
+                icon.innerText = TYPES[item.typeKey].icon;
+                icon.onclick = () => toggleType(item.id);
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'result-input';
+                input.value = item.text;
+                input.disabled = (state !== 'SELECTING');
+                input.oninput = (e) => item.text = e.target.value;
+                
+                // 後でハイライト用にイベント付与
+                dom.onclick = (e) => {
+                    if (state === 'FINISHED' && e.target !== input && e.target !== icon) {
+                        highlightPathByResult(item.colIndex);
+                    }
+                };
+
+                dom.appendChild(icon);
+                dom.appendChild(input);
+                ui.results.appendChild(dom);
+            });
+        }
+
+        function toggleType(id) {
+            if (state !== 'SELECTING') return;
+            const item = itemsData.find(d => d.id === id);
+            let idx = TYPE_KEYS.indexOf(item.typeKey);
+            idx = (idx + 1) % TYPE_KEYS.length;
+            item.typeKey = TYPE_KEYS[idx];
+            item.text = TYPES[item.typeKey].defaultText;
+            renderResults(); // 再描画
+        }
+
+        // --- フェーズ1: SETUP ---
+        document.getElementById('btn-minus-lines').onclick = () => {
+            if (lineCount > 2) { lineCount--; init(true); }
+        };
+        document.getElementById('btn-plus-lines').onclick = () => {
+            if (lineCount < 8) { lineCount++; init(true); }
+        };
+        document.getElementById('btn-next-lines').onclick = () => {
+            state = 'SELECTING';
+            switchUI('select');
+            document.querySelectorAll('.start-btn').forEach(b => b.classList.remove('disabled'));
+            document.querySelectorAll('.result-input').forEach(b => b.disabled = false);
+            updateSelectionUI();
+        };
+
+        // --- フェーズ2: SELECTING ---
+        function getPlayerColor(index) {
+            const colors = ['#38bdf8', '#a3e635', '#f472b6', '#c084fc', '#4ade80', '#fb923c', '#e2e8f0', '#fbbf24'];
+            return colors[index % colors.length];
+        }
+
+        function updateSelectionUI() {
+            ui.playerLabel.innerText = `${playerNames[currentPlayerIndex]}さん`;
+            ui.playerLabel.style.color = getPlayerColor(currentPlayerIndex);
+        }
+
+        function handleLineSelection(lineIndex, btn) {
+            if (state !== 'SELECTING' || btn.classList.contains('selected')) return;
+
+            selections.push({ playerIndex: currentPlayerIndex, lineIndex: lineIndex });
+            btn.classList.add('selected');
+            btn.innerText = playerNames[currentPlayerIndex];
+            btn.style.backgroundColor = getPlayerColor(currentPlayerIndex);
+            btn.style.boxShadow = `0 0 15px ${getPlayerColor(currentPlayerIndex)}80`;
+
+            currentPlayerIndex++;
+            if (currentPlayerIndex >= lineCount) {
+                // 選択終了、入力をロック
+                document.querySelectorAll('.result-input').forEach(b => b.disabled = true);
+                state = 'SHUFFLING';
+                switchUI('shuffle');
+                ui.btnShuffle.style.display = 'block';
+                ui.btnStartGame.style.display = 'none';
+            } else {
+                updateSelectionUI();
+            }
+        }
+
+        // --- フェーズ3: SHUFFLING ---
+        ui.btnShuffle.onclick = startShuffle;
+
+        function startShuffle() {
+            ui.btnShuffle.style.display = 'none';
+            
+            let duration = 5000;
+            let elapsed = 0;
+            let currentDelay = 500; // ゆっくりスタート
+
+            // 確実に入れ替えるためのロジック（あたり・ドボン優先）
+            function doSwap() {
+                // シャッフル用により目立つもの（ATARI/DOBON）を優先して選ぶ
+                let idx1 = Math.floor(Math.random() * lineCount);
+                let idx2 = Math.floor(Math.random() * lineCount);
+                while (idx1 === idx2) idx2 = Math.floor(Math.random() * lineCount);
+
+                // colIndexをスワップ
+                const tempCol = itemsData[idx1].colIndex;
+                itemsData[idx1].colIndex = itemsData[idx2].colIndex;
+                itemsData[idx2].colIndex = tempCol;
+
+                // DOMに反映
+                const dom1 = document.getElementById(itemsData[idx1].id);
+                const dom2 = document.getElementById(itemsData[idx2].id);
+                dom1.style.left = `${getLeftPercent(itemsData[idx1].colIndex)}%`;
+                dom2.style.left = `${getLeftPercent(itemsData[idx2].colIndex)}%`;
+            }
+
+            function loop() {
+                doSwap();
+                // 徐々に速くする (最小50ms)
+                currentDelay = Math.max(50, currentDelay * 0.85);
+                elapsed += currentDelay;
+
+                if (elapsed < duration) {
+                    setTimeout(loop, currentDelay);
+                } else {
+                    stopShuffle();
+                }
+            }
+            loop();
+        }
+
+        function stopShuffle() {
+            // シャッフル完了後、あたりとドボンを目立たせる
+            itemsData.forEach(item => {
+                if (item.typeKey === 'ATARI' || item.typeKey === 'DOBON') {
+                    const dom = document.getElementById(item.id);
+                    dom.classList.add('highlight-pop');
+                    setTimeout(() => dom.classList.remove('highlight-pop'), 600);
+                }
+            });
+
+            ui.btnStartGame.style.display = 'block';
+            ui.btnStartGame.onclick = () => {
+                state = 'COUNTDOWN';
+                switchUI('countdown');
+                startCountdown();
+            };
+        }
+
+        function startCountdown() {
+            let count = 3;
+            ui.countdown.innerText = count;
+
+            const countInterval = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    ui.countdown.innerText = count;
+                    ui.countdown.style.animation = 'none';
+                    ui.countdown.offsetHeight; 
+                    ui.countdown.style.animation = null; 
+                } else {
+                    clearInterval(countInterval);
+                    startPlayingPhase();
+                }
+            }, 1000);
+        }
+
+        // --- フェーズ4: PLAYING ---
+        function startPlayingPhase() {
+            state = 'PLAYING';
+            ui.mask.style.opacity = '0';
+            setTimeout(() => {
+                ui.mask.style.display = 'none';
+                ui.mask.style.pointerEvents = 'none';
+                runAllAnimations();
+            }, 400);
+        }
+
+        async function runAllAnimations() {
+            for (let i = 0; i < lineCount; i++) {
+                const selection = selections.find(s => s.playerIndex === i);
+                if (selection) {
+                    await animatePathSegmented(selection.lineIndex, selection.playerIndex);
+                    await new Promise(r => setTimeout(r, 400)); // 次の人までの間隔
+                }
+            }
+            state = 'FINISHED';
+            ui.retryOverlay.style.display = 'flex';
+            
+            // Startsにクリックイベント追加（ハイライト用）
+            ui.starts.childNodes.forEach(btn => {
+                btn.style.pointerEvents = 'auto';
+                btn.onclick = () => highlightPathByStart(parseInt(btn.dataset.col));
+            });
+        }
+
+        // 座標計算
+        function getPathCoords(startIndex) {
+            const lineSpacing = (VIEW_WIDTH - PADDING_SIDE * 2) / (lineCount - 1);
+            let col = startIndex;
+            let y = PADDING_TOP;
+            const coords = [{ x: PADDING_SIDE + col * lineSpacing, y: y }];
+
+            for (let i = 0; i < rungs.length; i++) {
+                const rung = rungs[i];
+                if (rung.y > y) {
+                    if (rung.col === col) {
+                        y = rung.y;
+                        coords.push({ x: PADDING_SIDE + col * lineSpacing, y: y });
+                        col++;
+                        coords.push({ x: PADDING_SIDE + col * lineSpacing, y: y });
+                    } else if (rung.col === col - 1) {
+                        y = rung.y;
+                        coords.push({ x: PADDING_SIDE + col * lineSpacing, y: y });
+                        col--;
+                        coords.push({ x: PADDING_SIDE + col * lineSpacing, y: y });
+                    }
+                }
+            }
+            coords.push({ x: PADDING_SIDE + col * lineSpacing, y: VIEW_HEIGHT - PADDING_BOTTOM });
+            return { coords, finalCol: col };
+        }
+
+        // セグメントごとに区切って描画（角で止まる）
+        async function animatePathSegmented(startIndex, playerIndex) {
+            const { coords, finalCol } = getPathCoords(startIndex);
+            const color = getPlayerColor(playerIndex);
+            
+            const path = document.createElementNS(svgns, 'path');
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke', color);
+            path.setAttribute('stroke-width', '5');
+            path.setAttribute('stroke-linecap', 'round');
+            path.setAttribute('stroke-linejoin', 'round');
+            path.dataset.player = playerIndex;
+            path.dataset.startCol = startIndex;
+            path.dataset.finalCol = finalCol;
+            ui.pathGroup.appendChild(path);
+            drawnPaths[playerIndex] = path;
+
+            let d = `M ${coords[0].x} ${coords[0].y}`;
+            path.setAttribute('d', d);
+
+            ui.tracer.style.display = 'block';
+            ui.tracer.setAttribute('fill', color);
+            ui.tracer.style.filter = `drop-shadow(0 0 6px ${color})`;
+
+            for (let i = 0; i < coords.length - 1; i++) {
+                const start = coords[i];
+                const end = coords[i+1];
+                const dist = Math.hypot(end.x - start.x, end.y - start.y);
+                const duration = dist * 2; // 移動速度
+
+                await new Promise(resolve => {
+                    const st = performance.now();
+                    function step(now) {
+                        const elapsed = now - st;
+                        const p = Math.min(elapsed / duration, 1);
+                        const cx = start.x + (end.x - start.x) * p;
+                        const cy = start.y + (end.y - start.y) * p;
+
+                        path.setAttribute('d', d + ` L ${cx} ${cy}`);
+                        ui.tracer.setAttribute('cx', cx);
+                        ui.tracer.setAttribute('cy', cy);
+
+                        if (p < 1) requestAnimationFrame(step);
+                        else {
+                            d += ` L ${end.x} ${end.y}`; // セグメント確定
+                            resolve();
+                        }
+                    }
+                    requestAnimationFrame(step);
+                });
+
+                // 分岐（横移動や角）で一瞬止まる「タメ」
+                if (i < coords.length - 2) {
+                    await new Promise(r => setTimeout(r, 80));
+                }
+            }
+
+            ui.tracer.style.display = 'none';
+            
+            // 結果の色を変える
+            const finalItem = itemsData.find(d => d.colIndex === finalCol);
+            const resInput = document.getElementById(finalItem.id).querySelector('.result-input');
+            resInput.style.borderColor = color;
+            resInput.style.boxShadow = `0 0 10px ${color}80`;
+        }
+
+        // --- フェーズ5: 後処理・ハイライト ---
+        function highlightPath(targetPath) {
+            // 全てを半透明に
+            Object.values(drawnPaths).forEach(p => {
+                p.setAttribute('opacity', '0.2');
+                p.setAttribute('stroke-width', '3');
+            });
+            // ターゲットを強調して一番手前に
+            targetPath.setAttribute('opacity', '1');
+            targetPath.setAttribute('stroke-width', '7');
+            ui.pathGroup.appendChild(targetPath); 
+        }
+
+        function highlightPathByStart(colIndex) {
+            const path = Object.values(drawnPaths).find(p => parseInt(p.dataset.startCol) === colIndex);
+            if (path) highlightPath(path);
+        }
+
+        function highlightPathByResult(colIndex) {
+            const path = Object.values(drawnPaths).find(p => parseInt(p.dataset.finalCol) === colIndex);
+            if (path) highlightPath(path);
+        }
+
+        // リセット処理
+        document.getElementById('btn-reset-top').onclick = () => init(true);
+        document.getElementById('btn-retry-same').onclick = () => init(false); // 設定引き継ぎ
+        document.getElementById('btn-retry-new').onclick = () => init(true);   // 完全リセット
+
+        // 中央タップでもう一度メニュー（念のため）
+        document.getElementById('amida-svg').onclick = () => {
+            if (state === 'FINISHED') ui.retryOverlay.style.display = 'flex';
+        };
+
+        // 起動
+        init(true);
+
+    </script>
+</body>
+</html>
