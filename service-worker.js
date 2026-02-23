@@ -1,12 +1,12 @@
 const CACHE_NAME = "amidapon-v1";
 const APP_SHELL = [
-  "/",
-  "/index.html",
-  "/manifest.webmanifest",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
-  "/icons/icon-1024.png",
-  "/icons/icon.svg"
+  "./",
+  "index.html",
+  "manifest.webmanifest",
+  "icons/icon-192.png",
+  "icons/icon-512.png",
+  "icons/icon-1024.png",
+  "icons/icon.svg"
 ];
 
 self.addEventListener("install", (event) => {
@@ -35,7 +35,7 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           return response;
         })
-        .catch(() => caches.match("/index.html"));
+        .catch(() => caches.match("index.html"));
     })
   );
 });
